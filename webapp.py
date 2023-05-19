@@ -12,13 +12,27 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 
 st.set_page_config(page_title="Analysing Shill Bid dataset", page_icon=":tada:", layout="wide")
 
-st.markdown('''
-<style>
-.stApp [data-testid="stToolbar"]{
-    display:none;
-}
-</style>
-''', unsafe_allow_html=True)
+# importing the module
+import tracemalloc
+# get the memory usage
+tracemalloc.start()
+
+memory_usage = tracemalloc.get_traced_memory()
+# convert to megabytes
+memory_usage = memory_usage[1] / (1024 * 1024)
+
+# displaying the memory
+st.write("This app use:", round(memory_usage, 2), "MB of Ram")
+
+
+
+# st.markdown('''
+# <style>
+# .stApp [data-testid="stToolbar"]{
+#     display:none;
+# }
+# </style>
+# ''', unsafe_allow_html=True)
 
 
 # Load data from CSV file
@@ -27,12 +41,44 @@ features = data.drop(['Class', 'Bidder_ID'], axis=1)
 ####
 
 
-st.title("Shill Bid dataset analysis :tada:")
+st.title("Shill Bid dataset analysis :tada:") 
+col1, col2 = st.columns(2) 
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["⭐ Introduction", 
+with col1:
+    # Create a slider to select the range of records
+    range_slider = st.slider('Select range to work with this dataset', 0, len(data),
+    (1, 1000))
+    # Get the start and end index from the slider value
+    start_index, end_index = range_slider
+    # Check if the start and end indices are the same This will avoid errors
+    if start_index == end_index:
+    # Subtract 100 from either start_index or end_index, taking care not to go out
+    # of range
+
+        if start_index > 100: 
+            start_index -= 100 
+        else: 
+            end_index += 100
+
+    # Make sure the indices stay within the range of the DataFrame
+    start_index = max(start_index, 0) 
+    end_index = min(end_index, len(data))
+    # new filtered data
+    data = data.iloc[start_index:end_index] 
+
+with col2: 
+        st.write("""At the left side
+you can adjust how many rows will be used for the analysis of the shill bid
+dataset. This selection will adjust to all the charts and tables that are on the website. """)
+
+
+
+tab1, tab2, tab3, tab33, tab4, dclust, tab5, tab6 = st.tabs(["⭐ Introduction", 
                             "🗃 Dataset", 
                             "📊 Histograms", 
+                            "📊 Histogram Analyser", 
                             "🇲🇬 Clusters ", 
+                            "🇲🇬 3d Cluster", 
                             "🗄 Filtering Shill bids",
                             "🔫 Detecting Shill Bids"])
 
@@ -56,6 +102,11 @@ In this panel application, you can explore:
     - which explains basic statistics about the Shill bid dataset to give a better understanding of what type of data we are dealing with.
 - Histograms tab
     - Histograms were plotted to give insights about how the data was spread and give us insights into how the distribution looked like.
+- **Histogram Analyser tab**
+    Here, we can observe all the histograms and interactively compare them. We can
+    see that the majority of values for all the histograms are in the range of 0-0.1
+    and 0.9-1. At the bottom of the chart, we can see how dense the variables we are
+    working with are.
 - Correlation Matrix
     - This chart is helping to show correlation across all the dataset feature variables and identify highest correlation with target class variable
 and we can see that these features can be the most helpful in identifying shill bids:
@@ -66,10 +117,10 @@ and we can see that these features can be the most helpful in identifying shill 
 - Clustering tab
     - This type of charting is confirming that when Successive Outbidding is equal to or higher than 0.5 is where 80% of all fraudulent bids are located in.Exploring
      clustering charts will give us insight that they are located in a specific way.
-
-- Record_ID vs Features tab
-    - Interactive charts are giving us insights into how the data and Class 0 and 1 (fraudulent bid) is spread across all the datasets. 
-- Filtering Shill Bids
+- **3d Cluster tab**
+    - This type of chart was chosen because we had the 3 most correlated features with the Class. We can see how
+    clusters are formed including in the same time 3 of them.
+- **Filtering Shill Bids**
     - This interactive tab is presenting with what kind of problem we are dealing here with. And how traditional filtering methods are working and
     that using maximum correlated features with class variable can help us to select up to 85% shill bids.
 - Detecting Shill Bids with Decision Tree
@@ -81,8 +132,8 @@ and we can see that these features can be the most helpful in identifying shill 
 #tab1.line_chart(data)
 
 tab2.write("## Dataset")
-tab2.write("Here is how the dataset that we are working with looks like:")
-tab2.write(data.tail())
+tab2.write("Here is how the dataset that we are working with looks like: (it will update if you will move the slider)")
+tab2.write(data.head(10))
 tab2.write("The shape of this dataset is")
 tab2.write(data.shape)
 tab2.write("""
@@ -138,7 +189,45 @@ with values 0 and 1.
 • Significant amount of all auctions have Winning Ratio equal to 0 we can interpret it
 that most of the users do not win the auction.
     """ )
+with tab33:
 
+    import plotly.figure_factory as ff
+
+    # Specify the column names you want to include in the distplot
+    column_names = [
+        'Record_ID', 'Auction_ID', 'Bidder_Tendency',
+        'Bidding_Ratio', 'Successive_Outbidding', 'Last_Bidding',
+        'Auction_Bids', 'Starting_Price_Average', 'Early_Bidding',
+        'Winning_Ratio'
+    ]
+
+    # Set the bin size
+    bin_size = 0.1
+    st.write('''
+    ## Histogram analyser
+    
+
+    Here, we can observe all the histograms and interactively compare them. We can
+    see that the majority of values for all the histograms are in the range of 0-0.1
+    and 0.9-1. At the bottom of the chart, we can see how dense the variables we are
+    working with are. For example, the "successive outbidding" feature has only
+    three values: 0, 0.5, and 1. You can interact with this chart and select the
+    ranges you are interested in. Click on the legend to turn specific features on
+    or off in the histograms.
+    ''')
+
+    # Create distplot with custom bin_size
+    fig = ff.create_distplot(
+        [data[column] for column in column_names[2:]],
+        column_names[2:],
+        bin_size=[bin_size] * len(column_names[2:]),
+    )
+
+    
+    fig.update_layout(title_text="title", margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700)
+
+    # Display the plot
+    st.plotly_chart(fig, use_container_width=True, use_container_height=True  )
 
 with tab3:
     col1, col2, col3 = st.columns(3)
@@ -156,6 +245,8 @@ with tab3:
             col3.plotly_chart(fig, use_container_width=True)
 
 with tab4:
+    st.write("## 2d Clusters")
+
     col1, col2 = st.columns(2)
 
     fig = px.scatter(
@@ -177,68 +268,110 @@ with tab4:
     col1.plotly_chart(fig, theme="streamlit", use_container_width=True)
     col2.plotly_chart(fig2, theme="streamlit", use_container_width=True)
 
-# TAB5
+with dclust:
+    st.write("## 3d Cluster")
+    st.write('''On this Chart we can see 3 the most correlated features with
+    class variable.  Yellow indicates a fraudulent bid. We can see where the fraudulent bids are located.
+    You can interact with the chart to adjust the best angle for you.
+
+    ''')
+
+    import plotly.graph_objs as go
+
+    x = data['Successive_Outbidding']
+    y = data['Winning_Ratio']
+    z = data['Bidder_Tendency']
+    color = data['Class']  # Values used for coloring
+
+    trace1 = go.Scatter3d(
+        x=x,
+        y=y,
+        z=z,
+        mode="markers",
+        marker=dict(
+            size=5,
+            color=color,  # Set color to 'Class' column
+            colorscale="Viridis",
+            opacity=0.8,
+            showscale=True  # Display color scale in legend
+        ),
+        name="Data Points"
+    )
+
+    data1 = [trace1]
+    layout = go.Layout(
+        margin=dict(l=0, r=0, b=0, t=0),
+        legend=dict(title="Legend"),
+        scene=dict(
+            xaxis_title="Successive_Outbidding",  # Set x-axis label to column name
+            yaxis_title="Winning_Ratio",  # Set y-axis label to column name
+            zaxis_title="Bidder_Tendency"   # Set z-axis label to column name
+        ),
+    )
+
+    fig = go.Figure(data=data1, layout=layout)
+    st.write(fig)
 
 # Define the slider for filtering
 
-def filter_data(successive_outbidding_value, winning_ratio_value, bidding_ratio_value):
-    filtered_data = data.loc[data['Successive_Outbidding'] >= successive_outbidding_value]
-    filtered_data = filtered_data.loc[filtered_data['Winning_Ratio'] >= winning_ratio_value]
-    filtered_data = filtered_data.loc[filtered_data['Bidding_Ratio'] >= bidding_ratio_value]
-    class_counts = filtered_data['Class'].value_counts()
-    fraudulent_count = class_counts.get(1, 0)
-    total_count = class_counts.sum()
-    fraudulent_pct = 100 * fraudulent_count / total_count
-    return fraudulent_pct, class_counts
+# Create the panel object
+with tab5:
 
-def plot_pie_chart(class_0_sum, class_1_sum):
-    labels = ['Normal Bids', 'Shill Bids', 'Undetected Shill Bids']
-    undetected=675-class_1_sum
-    sizes = [class_0_sum, class_1_sum, undetected]
-    explode = (0, 0.2, 0.3)
-    colors = ['#66b3ff', '#ff9999', '#ff1119',]
-    fig1, ax1 = plt.subplots()
-    ax1.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
-    ax1.axis('equal')
+    def filter_data(successive_outbidding_value, winning_ratio_value, bidding_ratio_value):
+        filtered_data = data.loc[data['Successive_Outbidding'] >= successive_outbidding_value]
+        filtered_data = filtered_data.loc[filtered_data['Winning_Ratio'] >= winning_ratio_value]
+        filtered_data = filtered_data.loc[filtered_data['Bidding_Ratio'] >= bidding_ratio_value]
+        class_counts = filtered_data['Class'].value_counts()
+        fraudulent_count = class_counts.get(1, 0)
+        total_count = class_counts.sum()
+        fraudulent_pct = 100 * fraudulent_count / total_count
+        return fraudulent_pct, class_counts
 
-    # create pie chart plot
-    return fig1
+    def plot_pie_chart(class_0_sum, class_1_sum):
+        labels = ['Normal Bids', 'Shill Bids', 'Undetected Shill Bids']
+        undetected=data['Class'].sum()-class_1_sum
+        sizes = [class_0_sum, class_1_sum, undetected]
+        explode = (0, 0.2, 0.3)
+        colors = ['#66b3ff', '#ff9999', '#ff1119',]
+        fig1, ax1 = plt.subplots()
+        ax1.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+        ax1.axis('equal')
 
-# Define the function to update the text widget when the slider is changed
-def update_fraudulent_pct():
-    col1, col2 = st.columns(2)
+        # create pie chart plot
+        return fig1
 
-    winning_ratio_value = col1.slider(
-        'Winning_Ratio', 
-        min_value=float(0),
-        max_value=float(1),
-        step=0.1)
-
-    successive_outbidding_value = col1.slider(
-        'Successive Outbidding', 
-        min_value=float(0),
-        max_value=float(1),
-        step=0.1)
-
-    bidding_ratio_value = col1.slider(
-        'Bidding_Ratio', 
-        min_value=float(0),
-        max_value=float(1),
-        step=0.1)
-
-
-
-    with tab5:
+    # Define the function to update the text widget when the slider is changed
+    def update_fraudulent_pct():
+        col1, col2 = st.columns(2)
+        # get the memory usage
+        # displaying the memory
+        winning_ratio_value = col1.slider(
+            'Winning Ratio ', 
+            min_value=float(0),
+            max_value=float(1),
+            step=0.1)
+        successive_outbidding_value = col1.slider(
+            'Successive Outbidding ', 
+            min_value=float(0),
+            max_value=float(1),
+            step=0.1)
+        bidding_ratio_value = col1.slider(
+            'Bidding Ratio ', 
+            min_value=float(0),
+            max_value=float(1),
+            step=0.1)
         fraudulent_pct, class_counts = filter_data(successive_outbidding_value, winning_ratio_value, bidding_ratio_value)
         class_0_sum = class_counts.get(0, 0)
         class_1_sum = class_counts.get(1, 0)
+        nr_records=data['Class'].shape
+        fraud_sum=data['Class'].sum()
+        col1.write(f'Records selected: {nr_records}, with {fraud_sum} fraudulend bids')
+        col1.write(f'**Filters resulted in selecting:**')
         col1.write(f'Fraudulent bids: {class_1_sum}')
         col1.write(f'Normal bids: {class_0_sum}')
-        col1.write(f'Undetected: {675-class_1_sum}')
+        col1.write(f'Undetected: {fraud_sum-class_1_sum}')
         col2.pyplot(plot_pie_chart(class_0_sum, class_1_sum))
 
-# Create the panel object
-with tab5:
 
     st.write('''
 ## Filtering Shill bids by 3 most correlated features with feature Class
@@ -248,23 +381,27 @@ when the value of the features will change. The goal is to select as many Shill
 bids and as few normal bids as possible.  This visualisation is showing with
 what kind of challenge we are dealing with in this dataset and that filtering by
 the features that are the most correlated with feature class are the most useful
-in detecting Shill bids. 
+in detecting Shill bids. **If the chart don't appear click 3d Cluster tab
+and then "Filtering shill bids" tab**
 
     ''')
-    st.markdown('Use the slider to filter bids by:')
+    st.markdown('Use the slider to filter bids by [ value >= slider value ]:')
     update_fraudulent_pct()
 
-from sklearn.model_selection import train_test_split
-
-# Machine Leraning Models
-from sklearn.model_selection import train_test_split
-from sklearn.decomposition import PCA
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
 
 with tab6:
+
+    # Machine Leraning Models
+    from sklearn.model_selection import train_test_split
+    from sklearn.decomposition import PCA
+    from sklearn.svm import SVC
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.metrics import accuracy_score
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import confusion_matrix
+    import scikitplot as skplt
+
 
     col1, col2 = st.columns(2)
 
@@ -280,8 +417,6 @@ with tab6:
     y = data['Class']
 
 
-    col2.write('Shape of dataset:'+str(X.shape))
-    col2.write('number of classes:'+str(len(np.unique(y))))
 
     classifier_name = col1.selectbox(
         'Select classifier',
@@ -289,6 +424,11 @@ with tab6:
     )
 
     def add_parameter_ui(clf_name):
+
+        memory_usage = tracemalloc.get_traced_memory()
+        # convert to megabytes
+        memory_usage = memory_usage[1] / (1024 * 1024)
+
         params = dict()
         if clf_name == 'SVM':
             C = col1.slider('C', 0.01, 10.0)
@@ -329,38 +469,34 @@ with tab6:
 
     acc = accuracy_score(y_test, y_pred)
 
+    # Calculate confusion matrix
+    cm = confusion_matrix(y_test, y_pred)
+    class_labels = ['Normal Bids', 'Fraudulent Bids']
+
+    # Plot the confusion matrix
+    fig, ax = plt.subplots()
+    skplt.metrics.plot_confusion_matrix(y_test, y_pred, ax=ax)
+    col2.pyplot(fig)
+
+    col2.write("---")
+    col2.write('Shape of dataset:'+str(X.shape))
+    col2.write('number of classes:'+str(len(np.unique(y))))
+    col2.write('0 - normal, 1-fraud')
     col2.write(f'Classifier = {classifier_name}')
     col2.write(f'Accuracy ='+str(round(acc,3)))
 
-    # #### PLOT DATASET ####
-    # # Project the data onto the 2 primary principal components
-    # pca = PCA(2)
-    # X_projected = pca.fit_transform(X)
 
-    # x1 = X_projected[:, 0]
-    # x2 = X_projected[:, 1]
 
-    # fig = plt.figure()
-    # plt.scatter(x1, x2,
-    #         c=y, alpha=0.8,
-    #         cmap='viridis')
+# enable_scroll = """
+# <style>
+# .main {
+#     overflow: auto;
+# }
+# </style>
+# """
 
-    # plt.xlabel('Principal Component 1')
-    # plt.ylabel('Principal Component 2')
-    # plt.colorbar()
 
-    # #plt.show()
-    # st.pyplot(fig)
-
-enable_scroll = """
-<style>
-.main {
-    overflow: auto;
-}
-</style>
-"""
-
-st.markdown(enable_scroll, unsafe_allow_html=True)    
+# st.markdown(enable_scroll, unsafe_allow_html=True)    
 
 ## Footer
 footer="""<style>
@@ -369,13 +505,11 @@ color: blue;
 background-color: transparent;
 text-decoration: underline;
 }
-
 a:hover,  a:active {
 color: red;
 background-color: transparent;
 text-decoration: underline;
 }
-
 .footer {
 position: fixed;
 left: 0;
@@ -390,4 +524,5 @@ text-align: center;
 <p>Developed with ❤ by <a style='display: block; text-align: center;' href="https://webtool.page" target="_blank">Marcin Mrugacz</a></p>
 </div>
 """
+
 st.markdown(footer,unsafe_allow_html=True)
