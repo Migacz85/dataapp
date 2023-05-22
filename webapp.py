@@ -9,22 +9,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
+import psutil
 
 st.set_page_config(page_title="Analysing Shill Bid dataset", page_icon=":tada:", layout="wide")
 
-# importing the module
-import tracemalloc
-# get the memory usage
-tracemalloc.start()
+process = psutil.Process()
+memory_usage = process.memory_info().rss  # Memory usage in bytes
+memory_usage_mb = memory_usage / (1024 * 1024)  # Convert to megabytes
 
-memory_usage = tracemalloc.get_traced_memory()
-# convert to megabytes
-memory_usage = memory_usage[1] / (1024 * 1024)
-
-# displaying the memory
-st.write("This app use:", round(memory_usage, 2), "MB of Ram")
-
-
+st.write("This app uses: ", round(memory_usage_mb, 2), "MB of RAM")
 
 # st.markdown('''
 # <style>
@@ -46,7 +39,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     # Create a slider to select the range of records
-    range_slider = st.slider('Select range to work with this dataset', 0, len(data),
+    range_slider = st.slider('Select how many records you want to work with shill-bid.csv dataset:', 0, len(data),
     (1, 1000))
     # Get the start and end index from the slider value
     start_index, end_index = range_slider
@@ -66,11 +59,25 @@ with col1:
     # new filtered data
     data = data.iloc[start_index:end_index] 
 
+    downsample = st.checkbox("Downsample Data [for balancing 'Class' feature]")
+
+    if downsample: 
+
+        class_counts = data['Class'].value_counts()
+        min_class_count = class_counts.min()
+        
+        data_downsampled = data.groupby('Class').apply(lambda x: x.sample(min_class_count))
+        data_downsampled.reset_index(drop=True, inplace=True)
+        data=data_downsampled
+
+
 with col2: 
         st.write("""At the left side
 you can adjust how many rows will be used for the analysis of the shill bid
-dataset. This selection will adjust to all the charts and tables that are on the website. """)
-
+dataset. This selection will adjust to all the charts and tables that are on the website. 
+Also check my [Shill Bid Report](https://drive.google.com/file/d/1Fu4NdN-lJJqCi_VWaSJjWGxcJr292jB9/view)
+""")
+        st.write("**Currrent data shape**:", data.shape)
 
 
 tab1, tab2, tab3, tab33, tab4, dclust, tab5, tab6 = st.tabs(["⭐ Introduction", 
@@ -98,23 +105,23 @@ Shill bids are spread across the dataset.
 
 In this panel application, you can explore:
 
-- Dataset description tab
+- **Dataset description tab**
     - which explains basic statistics about the Shill bid dataset to give a better understanding of what type of data we are dealing with.
-- Histograms tab
+- **Histograms tab**
     - Histograms were plotted to give insights about how the data was spread and give us insights into how the distribution looked like.
 - **Histogram Analyser tab**
     Here, we can observe all the histograms and interactively compare them. We can
     see that the majority of values for all the histograms are in the range of 0-0.1
     and 0.9-1. At the bottom of the chart, we can see how dense the variables we are
     working with are.
-- Correlation Matrix
+- **Correlation Matrix**
     - This chart is helping to show correlation across all the dataset feature variables and identify highest correlation with target class variable
 and we can see that these features can be the most helpful in identifying shill bids:
         - The Successive-Outbidding (0.9), 
         - Bidding-Ratio (0.57) 
         - Winning-Ratio (0.39)
     - They indicate that these features are the most useful in making our prediction of the Shill bids.
-- Clustering tab
+- **Clustering tab**
     - This type of charting is confirming that when Successive Outbidding is equal to or higher than 0.5 is where 80% of all fraudulent bids are located in.Exploring
      clustering charts will give us insight that they are located in a specific way.
 - **3d Cluster tab**
@@ -123,9 +130,9 @@ and we can see that these features can be the most helpful in identifying shill 
 - **Filtering Shill Bids**
     - This interactive tab is presenting with what kind of problem we are dealing here with. And how traditional filtering methods are working and
     that using maximum correlated features with class variable can help us to select up to 85% shill bids.
-- Detecting Shill Bids with Decision Tree
-    - In this interactive tab we can see how Decision Tree model is way superior that standard filtering methods. 
-    It shows how we can detect up to 99.9% shill bids. We also can understand how depth hyperparameter
+- **Detecting Shill Bids with Decision Tree**
+    - In this interactive tab we can see how Random Forest model is way superior that standard filtering methods. 
+    It shows how we can detect up to 99% shill bids. We also can understand how depth hyperparameter
     will change the final accuracy score. 
 """
 )
@@ -152,7 +159,7 @@ the current winner to increase the price gradually with small consecutive increm
 - Auction Bids: Auctions with SB activities tend to have a much higher number of bids
 than the average of bids in concurrent auctions.
 - Auction Starting Price: a shill bidder usually offers a small starting price to attract
-legitimate bidders into the auction.
+legitimaie bidders into the auction.
 - Early Bidding: A shill bidder tends to bid pretty early in the auction (less than 25 per
 cent of the auction duration) to get the attention of auction users.
 - Winning Ratio: A shill bidder competes in many auctions but hardly wins any auctions.
@@ -186,7 +193,7 @@ to participate in auctions less frequently in order to raise the price.
 equal to 0.5 or 1.
 - Last Bidding and Early bidding have similar characteristics with the majority of samples
 with values 0 and 1.
-• Significant amount of all auctions have Winning Ratio equal to 0 we can interpret it
+- Significant amount of all auctions have Winning Ratio equal to 0 we can interpret it
 that most of the users do not win the auction.
     """ )
 with tab33:
@@ -246,6 +253,7 @@ with tab3:
 
 with tab4:
     st.write("## 2d Clusters")
+    st.write("Red dots are Shill bids that we are looking for. We can see that when the Succesive Outbidding is equal or higher to 0.5 we have cluster of shill bids.  ")
 
     col1, col2 = st.columns(2)
 
@@ -254,14 +262,14 @@ with tab4:
     x="Successive_Outbidding",
     y="Bidder_Tendency",
     color="Class",
-    color_continuous_scale="reds",
+    color_continuous_scale="peach",
 )
     fig2 = px.scatter(
     data,
     x="Successive_Outbidding",
     y="Winning_Ratio",
     color="Class",
-    color_continuous_scale="reds",
+    color_continuous_scale="peach",
 )
 
 
@@ -271,10 +279,11 @@ with tab4:
 with dclust:
     st.write("## 3d Cluster")
     st.write('''On this Chart we can see 3 the most correlated features with
-    class variable.  Yellow indicates a fraudulent bid. We can see where the fraudulent bids are located.
-    You can interact with the chart to adjust the best angle for you.
+    class variable.  The red most intuitive color indicates a fraudulent bid. Thanks to this
+    chart we can see where the fraudulent bids are located in three dimensional
+    space.  ''')
 
-    ''')
+    st.info("💡 You can interact with the chart to adjust the best angle for you.")
 
     import plotly.graph_objs as go
 
@@ -291,8 +300,9 @@ with dclust:
         marker=dict(
             size=5,
             color=color,  # Set color to 'Class' column
-            colorscale="Viridis",
-            opacity=0.8,
+            #Choose colorscheme here https://plotly.com/python/builtin-colorscales/
+            colorscale="Picnic",
+            opacity=0.3,
             showscale=True  # Display color scale in legend
         ),
         name="Data Points"
@@ -371,6 +381,7 @@ with tab5:
         col1.write(f'Normal bids: {class_0_sum}')
         col1.write(f'Undetected: {fraud_sum-class_1_sum}')
         col2.pyplot(plot_pie_chart(class_0_sum, class_1_sum))
+        col2.info('💡 If the chart do not appear click 3d Cluster tab and then "Filtering shill bids" tab again. ')
 
 
     st.write('''
@@ -381,9 +392,7 @@ when the value of the features will change. The goal is to select as many Shill
 bids and as few normal bids as possible.  This visualisation is showing with
 what kind of challenge we are dealing with in this dataset and that filtering by
 the features that are the most correlated with feature class are the most useful
-in detecting Shill bids. **If the chart don't appear click 3d Cluster tab
-and then "Filtering shill bids" tab**
-
+in detecting Shill bids. 
     ''')
     st.markdown('Use the slider to filter bids by [ value >= slider value ]:')
     update_fraudulent_pct()
@@ -397,7 +406,7 @@ with tab6:
     from sklearn.svm import SVC
     from sklearn.neighbors import KNeighborsClassifier
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.metrics import accuracy_score
+    from sklearn.metrics import accuracy_score, precision_score, recall_score
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import confusion_matrix
     import scikitplot as skplt
@@ -405,8 +414,11 @@ with tab6:
 
     col1, col2 = st.columns(2)
 
+
     
-    col1.write("""We can see that training a Random Tree classification model on
+    col1.write("""
+    ## Detecting Shill Bids
+    We can see that training a Random Tree classification model on
     the Shill bid dataset is way superior to using traditional approaches
     of using simple filtering methods. 
     Adjust the hyperparameters to re-run the decision tree classifier. The
@@ -422,13 +434,11 @@ with tab6:
         'Select classifier',
         ('KNN', 'SVM', 'Random Forest')
     )
+    shuffle_state = col1.checkbox("Shuffle Data")
 
     def add_parameter_ui(clf_name):
 
-        memory_usage = tracemalloc.get_traced_memory()
-        # convert to megabytes
-        memory_usage = memory_usage[1] / (1024 * 1024)
-
+      #  memory_usage = process.memory_info().rss 
         params = dict()
         if clf_name == 'SVM':
             C = col1.slider('C', 0.01, 10.0)
@@ -461,29 +471,54 @@ with tab6:
     #### CLASSIFICATION ####
     test_size=col1.slider("Test size [%]", 0.01,0.99, 0.2)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=1234)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=1234, shuffle=shuffle_state)
 
 
     clf.fit(X_train, y_train)
     y_pred = clf.predict(X_test)
 
-    acc = accuracy_score(y_test, y_pred)
+    acc = round(accuracy_score(y_test, y_pred), 2)
+    precision = round(precision_score(y_test, y_pred),2 )
+    recall = round(recall_score(y_test, y_pred), 2)
 
     # Calculate confusion matrix
     cm = confusion_matrix(y_test, y_pred)
     class_labels = ['Normal Bids', 'Fraudulent Bids']
 
     # Plot the confusion matrix
+    # Color refference:
+    # https://matplotlib.org/stable/gallery/color/colormap_reference.html
     fig, ax = plt.subplots()
-    skplt.metrics.plot_confusion_matrix(y_test, y_pred, ax=ax)
+    skplt.metrics.plot_confusion_matrix(y_test, y_pred, ax=ax, cmap="Blues" )
+
+    col2.write('0 - normal, 1-fraud')
     col2.pyplot(fig)
 
     col2.write("---")
-    col2.write('Shape of dataset:'+str(X.shape))
-    col2.write('number of classes:'+str(len(np.unique(y))))
-    col2.write('0 - normal, 1-fraud')
-    col2.write(f'Classifier = {classifier_name}')
-    col2.write(f'Accuracy ='+str(round(acc,3)))
+    col2.write('**Evaluation metrics:** ')
+
+    col2.write( f"""
+        Accuracy: {acc} \n
+        Precision: {precision} \n
+        Recall: {recall} \n
+        """) 
+
+    col2.write("---")
+
+    # Confusion matrix explanation: 
+    true_positive = cm[1][1]  # Correctly predicted shill bids
+    false_negative = cm[1][0]  # Incorrectly predicted normal bids as shill bids
+    false_positive = cm[0][1]  # Incorrectly predicted shill bids as normal bids
+    true_negative = cm[0][0]  # Correctly predicted normal bids
+
+    col1.write("**Confusion Matrix Results:**")
+    col1.write(f"- Correctly predicted shill bids: {true_positive}")
+    col1.write(f"- Correctly predicted normal bids: {true_negative}")
+    col1.write(f"- False positives (Normal bids predicted as shill bids): {false_positive}")
+    col1.write(f"- False negatives (Shill bids predicted as normal bids): {false_negative}")
+    col1.info(""" 💡 We can see that Random Forest is performing best from all the models. We can be fooled at first if we 
+        will use a not balanced dataset that all of the models are performing with high accuracy. However after balancing the dataset 
+        we can see real accuracy results. """)
 
 
 
