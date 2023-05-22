@@ -23,7 +23,7 @@ This web app allows users to interactively explore and analyze the Shill Bid dat
 
 ## Getting Started
 
-To use this web app, simply visit https://dataviz2.webtool.page or https://dataapp.streamlit and start exploring the Shill Bid dataset interactively!
+To use this web app, simply visit https://dataviz2.webtool.page or https://dataap.streamlit.app/ and start exploring the Shill Bid dataset interactively!
 
 For running the app locally, follow these steps:
 
